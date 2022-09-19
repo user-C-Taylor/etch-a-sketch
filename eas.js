@@ -22,8 +22,25 @@ let writing = false;
 let written = false;
 const sketchContainer = document.getElementById('sketchContainer');
 const forgiveDiv = document.getElementById('forgiveDiv');
+let skLeft = sketchContainer.getBoundingClientRect().left;
+let skTop = sketchContainer.getBoundingClientRect().top;
+
+function setXY(){
+  skLeft = sketchContainer.getBoundingClientRect().left;
+  skTop = sketchContainer.getBoundingClientRect().top;
+}
+
+function debounce(func, milliseconds){
+  let time = milliseconds || 100; 
+  let timer;
+  return function(){
+      if(timer) clearTimeout(timer);
+      timer = setTimeout(func, time);
+  };
+}
 
 document.oncontextmenu = () => false;
+
 function adder(divN, side){
   const newDiv = document.createElement('div');
   newDiv.setAttribute('id', `div-${divN}`);
@@ -33,10 +50,12 @@ function adder(divN, side){
   newDiv.style.height = `${side}px`;
   sketchContainer.appendChild(newDiv);
 }
+
 function remover(divN){
   const deleted = document.getElementById(`div-${divN}`);
   sketchContainer.removeChild(deleted);
 }
+
 function resizer(newDivSide){
   const toDo = document.querySelectorAll('.all');
   toDo.forEach(elem => {
@@ -44,6 +63,7 @@ function resizer(newDivSide){
     elem.style.width = `${newDivSide}px`;
   });
 }
+
 function sizer(nElemsOnSide){
   const totalElems = nElemsOnSide * nElemsOnSide;
   const newDivSide = 400 / nElemsOnSide;
@@ -53,12 +73,12 @@ function sizer(nElemsOnSide){
     for(let i = nExistingElems - 1; i >= last; i--){
       remover(i);
     }
-    //resize elements bigger
+    // Resize elements bigger.
     resizer(newDivSide);
     nExistingElems = totalElems;
 
   } else if(nExistingElems < totalElems){
-    // resize elements smaller
+    // Resize elements smaller.
     resizer(newDivSide);
     for(let i = nExistingElems; i < totalElems; i++){
       adder(i, newDivSide);
@@ -85,95 +105,97 @@ function setCoords(e){
 }
 
 function setSkCoords(e){
-  e.stopPropagation();
-  queueN += 1;
-  // Preserve queueN, msX, and msY specific to lexical context of 
-  // mousemove event.
-  m = queueN;
-  let msX = e.clientX;
-  let msY = e.clientY;
-  // queueBackfill() must be declared within setSkCoords() lexical 
-  // context to access m, msX, and msY when queue builds up.
-  function queueBackfill(){
+  if(active){
+    e.stopPropagation();
+    queueN += 1;
+    // Preserve queueN, msX, and msY specific to lexical context of 
+    // setSkCoords() instance.
+    m = queueN;
+    let msX = e.clientX;
+    let msY = e.clientY;
+    // queueBackfill() must be declared within setSkCoords() lexical 
+    // context to access m, msX, and msY when queue builds up.
+    function queueBackfill(){
 
-    if(m > n){
-      setTimeout(() => {
-        queueBackfill();
-      }, 50);
-      inQueue = true;
-    } else{ 
-      writing = true;
-      inQueue = false;
+      if(m > n){
+        setTimeout(() => {
+          queueBackfill();
+        }, 50);
+        inQueue = true;
+      } else{ 
+        writing = true;
+        inQueue = false;
 
-      // Since nothing has been assigned to object key [-1], the below 
-      // will set oldX/oldY to undefined when the array is empty.
-      let  oldX = mX[mX.length - 1];
-      let  oldY = mY[mY.length - 1];
+        // Since nothing has been assigned to object key [-1], the
+        // below will set oldX/oldY to undefined when array is empty.
+        let  oldX = mX[mX.length - 1];
+        let  oldY = mY[mY.length - 1];
 
-      // undefined --> NaN which returns false for all comparisons.
-      if(msX > oldX && msY > oldY){
-        let nXSteps = (msX - oldX) / side;
-        let nYSteps = (msY - oldY) / side;
-        let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
-        let incrX = (msX - oldX) / stepsMax;
-        let incrY =  (msY - oldY) / stepsMax;
+        // undefined --> NaN which returns false for all comparisons.
+        if(msX > oldX && msY > oldY){
+          let nXSteps = (msX - oldX) / side;
+          let nYSteps = (msY - oldY) / side;
+          let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
+          let incrX = (msX - oldX) / stepsMax;
+          let incrY =  (msY - oldY) / stepsMax;
 
-        let last = filledM + stepsMax;
-        for(let i = filledM + 1; i <= last; i++){
-          mX[i] = mX[i-1] + incrX;
-          mY[i] = mY[i-1] + incrY;
+          let last = filledM + stepsMax;
+          for(let i = filledM + 1; i <= last; i++){
+            mX[i] = mX[i-1] + incrX;
+            mY[i] = mY[i-1] + incrY;
+          }
+          filledM += stepsMax;
+        } else if(msX < oldX && msY > oldY){
+          let nXSteps = (oldX - msX) / side;
+          let nYSteps = (msY - oldY) / side;
+          let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
+          let incrX = -(oldX - msX) / stepsMax;
+          let incrY =  (msY - oldY) / stepsMax;
+
+          let last = filledM + stepsMax;
+          for(let i = filledM + 1; i <= last; i++){
+            mX[i] = mX[i-1] + incrX;
+            mY[i] = mY[i-1] + incrY;
+          }
+          filledM += stepsMax;
+        } else if(msX > oldX && msY < oldY){
+          let nXSteps = (msX - oldX) / side;
+          let nYSteps = (oldY - msY) / side;
+          let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
+          let incrX = (msX - oldX) / stepsMax;
+          let incrY = -(oldY - msY) / stepsMax;
+
+          let last = filledM + stepsMax;
+          for(let i = filledM + 1; i <= last; i++){
+            mX[i] = mX[i-1] + incrX;
+            mY[i] = mY[i-1] + incrY;
+          }
+          filledM += stepsMax;
+        } else if(msX < oldX && msY < oldY){
+          let nXSteps = (oldX - msX) / side;
+          let nYSteps = (oldY - msY) / side;
+          let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
+          let incrX = -(oldX - msX) / stepsMax;
+          let incrY = -(oldY - msY) / stepsMax;
+
+          let last = filledM + stepsMax;
+          for(let i = filledM + 1; i <= last; i++){
+            mX[i] = mX[i-1] + incrX;
+            mY[i] = mY[i-1] + incrY;
+          }
+          filledM += stepsMax;
+        } else if(oldX === undefined){
+          mX.push(msX);
+          mY.push(msY);
+          filledM += 1;
         }
-        filledM += stepsMax;
-      } else if(msX < oldX && msY > oldY){
-        let nXSteps = (oldX - msX) / side;
-        let nYSteps = (msY - oldY) / side;
-        let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
-        let incrX = -(oldX - msX) / stepsMax;
-        let incrY =  (msY - oldY) / stepsMax;
-
-        let last = filledM + stepsMax;
-        for(let i = filledM + 1; i <= last; i++){
-          mX[i] = mX[i-1] + incrX;
-          mY[i] = mY[i-1] + incrY;
-        }
-        filledM += stepsMax;
-      } else if(msX > oldX && msY < oldY){
-        let nXSteps = (msX - oldX) / side;
-        let nYSteps = (oldY - msY) / side;
-        let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
-        let incrX = (msX - oldX) / stepsMax;
-        let incrY = -(oldY - msY) / stepsMax;
-
-        let last = filledM + stepsMax;
-        for(let i = filledM + 1; i <= last; i++){
-          mX[i] = mX[i-1] + incrX;
-          mY[i] = mY[i-1] + incrY;
-        }
-        filledM += stepsMax;
-      } else if(msX < oldX && msY < oldY){
-        let nXSteps = (oldX - msX) / side;
-        let nYSteps = (oldY - msY) / side;
-        let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
-        let incrX = -(oldX - msX) / stepsMax;
-        let incrY = -(oldY - msY) / stepsMax;
-
-        let last = filledM + stepsMax;
-        for(let i = filledM + 1; i <= last; i++){
-          mX[i] = mX[i-1] + incrX;
-          mY[i] = mY[i-1] + incrY;
-        }
-        filledM += stepsMax;
-      } else if(oldX === undefined){
-        mX.push(msX);
-        mY.push(msY);
-        filledM += 1;
+        written = true;
+        writing = false;
+        n += 1;
       }
-      written = true;
-      writing = false;
-      n += 1;
     }
+    queueBackfill();
   }
-  queueBackfill();
 }
 
 function doElementsCollide(msX, msY, elem){
@@ -197,8 +219,12 @@ function isHere(){
   }
 }
 
-function computeIDs(){
-
+function computeIDs(x, y){
+  let brushSize = 3;
+  let top = 100;
+  let left = 300;
+  // For sketchContainer and Div-0:
+  // The top is the same top and the left is the same left.
 }
 
 function backfill(){
@@ -243,6 +269,9 @@ function doStuff(){
   sketchContainer.addEventListener('mousemove', setSkCoords);
   start();
   stop();
+  window.addEventListener('resize', debounce(() => {
+    setXY();
+   }));
   //styler();
 
 }
