@@ -5,6 +5,7 @@
       */
 let nDivs = 0;
 let active = false;
+let startAgain = false;
 let mouseX;
 let mouseY;
 let mX = [];
@@ -13,7 +14,7 @@ let filledM = -1;
 let divList = [];
 let divListN = 0;
 let checkedDivN = -1;
-let nElemsOnSide = 200;
+let nElemsOnYAxis = 200;
 let side;
 let nExistingElems = 0;
 let choice = '#0000FF';
@@ -24,8 +25,11 @@ let writing = false;
 let written = false;
 const sketchContainer = document.getElementById('sketchContainer');
 const forgiveDiv = document.getElementById('forgiveDiv');
+
 let skLeft = sketchContainer.getBoundingClientRect().left;
 let skTop = sketchContainer.getBoundingClientRect().top;
+const skWidth = 600;
+const skHeight = 400;
 
 function setXY(){
   skLeft = sketchContainer.getBoundingClientRect().left;
@@ -66,9 +70,10 @@ function resizer(newDivSide){
   });
 }
 
-function sizer(nElemsOnSide){
-  const totalElems = nElemsOnSide * nElemsOnSide;
-  const newDivSide = 400 / nElemsOnSide;
+function sizer(nElemsOnYAxis){
+  const totalElems = nElemsOnYAxis * (skWidth / skHeight) * 
+                     nElemsOnYAxis;
+  const newDivSide = skHeight / nElemsOnYAxis;
   side = newDivSide;
   if(nExistingElems > totalElems){
     const last = totalElems;
@@ -112,7 +117,12 @@ function setSkCoords(e){
     queueN += 1;
     // Preserve queueN, msX, and msY specific to lexical context of 
     // setSkCoords() instance.
-    m = queueN;
+    const m = queueN;
+    let o;
+    if(startAgain){
+      o = m;
+      startAgain = false;
+    }
     let msX = e.clientX;
     let msY = e.clientY;
     // queueBackfill() must be declared within setSkCoords() lexical 
@@ -128,6 +138,12 @@ function setSkCoords(e){
         writing = true;
         inQueue = false;
 
+        // IF startAgain for this instance of setSkCoords():
+        if(o === m){
+          mX = [];
+          mY = [];
+          filledM = -1;
+        }
         // Since nothing has been assigned to object key [-1], the
         // below will set oldX/oldY to undefined when array is empty.
         let  oldX = mX[mX.length - 1];
@@ -240,14 +256,14 @@ function isHere(){
      For center div:
      vertical = (y - skTop)
      rowNum = Math.floor(vertical / side)
-     firstDivN = rowNum * (400 / side)
+     firstDivN = rowNum * (skWidth / side)
      
      horizontal = (x - skLeft)
      columnNum = Math.floor(horizontal / side)
      
      For general case: divN = firstDivN + columnNum
 
-     centerDivN = Math.floor((y - skTop) / side) * (400 / side) +
+     centerDivN = Math.floor((y - skTop) / side) * (skWidth / side) +
                   Math.floor((x - skLeft) / side)
   
      BrushSize is always odd.
@@ -261,10 +277,10 @@ function isHere(){
      vertical = (y - (brushSize - 1) / 2 - skTop)
      firstBrushedRow = Math.floor(vertical / side)
      To the bottom:
-     vertical = (y + (brushSie - 1) / 2 - skTop)
+     vertical = (y + (brushSize - 1) / 2 - skTop)
      LastBrushedRow = Math.floor(vertical / side)
      
-     firstBrushedDivN = firstBrushedRow * (400 / side) +
+     firstBrushedDivN = firstBrushedRow * (skWidth / side) +
                         firstBrushedColumn
   **************************************************************/
   
@@ -279,13 +295,13 @@ function computeIDs(x, y){
                             skLeft) / side);
   let lastBrushedColumnN = Math.floor((x + (brushSize - 1) / 2 - 
                            skLeft) / side);
-  const rowMultiplier = 400 / side;
+  const rowMultiplier = skWidth / side;
   
   // "No collision" case (actually allows edging right and bottom):
   if(x - (brushSize - 1) / 2 > skLeft &&
-     skLeft + 400 > x + (brushSize - 1) / 2 &&
+     skLeft + skWidth > x + (brushSize - 1) / 2 &&
      y - (brushSize - 1) / 2 > skTop &&
-     skTop + 400 > y + (brushSize - 1) / 2){
+     skTop + skHeight > y + (brushSize - 1) / 2){
 
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
@@ -295,10 +311,10 @@ function computeIDs(x, y){
     }
   // Collide with bottom case:
   } else if(x - (brushSize - 1) / 2 > skLeft &&
-            skLeft + 400 > x + (brushSize - 1) / 2 &&
-            skTop + 400 <= y + (brushSize - 1) / 2){
+            skLeft + skWidth > x + (brushSize - 1) / 2 &&
+            skTop + skHeight <= y + (brushSize - 1) / 2){
     
-    lastBrushedRowN = 400 / side - 1;
+    lastBrushedRowN = skHeight / side - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -308,7 +324,7 @@ function computeIDs(x, y){
   // Collide with left case:
   } else if(x - (brushSize - 1) / 2 <= skLeft &&
             y - (brushSize - 1) / 2 > skTop &&
-            skTop + 400 > y + (brushSize - 1) / 2){
+            skTop + skHeight > y + (brushSize - 1) / 2){
     
     firstBrushedColumnN = 0;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
@@ -318,11 +334,11 @@ function computeIDs(x, y){
       }
     }
   // Collide with right case:
-  } else if(skLeft + 400 <= x + (brushSize - 1) / 2 &&
+  } else if(skLeft + skWidth <= x + (brushSize - 1) / 2 &&
             y - (brushSize - 1) / 2 > skTop &&
-            skTop + 400 > y + (brushSize - 1) / 2){
+            skTop + skHeight > y + (brushSize - 1) / 2){
 
-    lastBrushedColumnN = 400 / side - 1;
+    lastBrushedColumnN = skWidth / side - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -331,7 +347,7 @@ function computeIDs(x, y){
     }
   // Collide with top case:
   } else if(x - (brushSize - 1) / 2 > skLeft &&
-            skLeft + 400 > x + (brushSize - 1) / 2 &&
+            skLeft + skWidth > x + (brushSize - 1) / 2 &&
             y - (brushSize - 1) / 2 <= skTop){
     
     firstBrushedRowN = 0;
@@ -343,9 +359,9 @@ function computeIDs(x, y){
     }
   // Collide with bottom left corner case:
   } else if(x - (brushSize - 1) / 2 <= skLeft &&
-            skTop + 400 <= y + (brushSize - 1) / 2){
+            skTop + skHeight <= y + (brushSize - 1) / 2){
 
-    lastBrushedRowN = 400 / side - 1;
+    lastBrushedRowN = skHeight / side - 1;
     firstBrushedColumnN = 0;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
@@ -354,11 +370,11 @@ function computeIDs(x, y){
       }
     }
   // Collide with bottom right corner case:
-  } else if(skLeft + 400 <= x + (brushSize - 1) / 2 &&
-            skTop + 400 <= y + (brushSize - 1) / 2){
+  } else if(skLeft + skWidth <= x + (brushSize - 1) / 2 &&
+            skTop + skHeight <= y + (brushSize - 1) / 2){
     
-    lastBrushedRowN = 400 / side - 1;
-    lastBrushedColumnN = 400 / side - 1;
+    lastBrushedRowN = skHeight / side - 1;
+    lastBrushedColumnN = skWidth / side - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -378,11 +394,11 @@ function computeIDs(x, y){
       }
     }
   // Collide with top right corner case:
-  } else if(skLeft + 400 <= x + (brushSize - 1) / 2 &&
+  } else if(skLeft + skWidth <= x + (brushSize - 1) / 2 &&
             y - (brushSize - 1) / 2 <= skTop){
 
     firstBrushedRowN = 0;
-    lastBrushedColumnN = 400 / side - 1;
+    lastBrushedColumnN = skWidth / side - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -412,6 +428,7 @@ function backfill(){
 function start(){
   sketchContainer.addEventListener('mousedown', () => {
     active = true;
+    startAgain = true;
     isHere();
     backfill();
   })
@@ -421,14 +438,14 @@ function stop(){
   forgiveDiv.addEventListener('mouseup', () => {
     active = false;
 
-    setTimeout(() => {
+    /*setTimeout(() => {
       mX = [];
       mY = [];
       filledM = -1;
       divList = [];
       divListN = 0;
       checkedDivN = -1;
-    }, 200);
+    }, 200);*/
   })
 }
 function reset(){
@@ -436,11 +453,13 @@ function reset(){
   toDo.forEach(elem => {
     elem.style.backgroundColor = '#FFFFFF';
   });
+  // instead: iterate through divList[] then clear divList and related.
+  // backgroundColor = ''; (revert to stylesheet)
 }
 window.addEventListener('load', doStuff);
 
 function doStuff(){
-  sizer(nElemsOnSide);
+  sizer(nElemsOnYAxis);
   document.addEventListener('mousemove', setCoords);
   sketchContainer.addEventListener('mousemove', setSkCoords);
   start();

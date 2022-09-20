@@ -10,8 +10,9 @@ body {
   user-select: none;
 }
 #forgiveDiv {
-  width: 504px;
-  height: 504px;
+  flex: none;
+  width: 650px;
+  height: 450px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19,7 +20,8 @@ body {
 }
 
 #sketchContainer {
-  width: 400px;
+  flex: none;
+  width: 600px;
   height: 400px;
   display: flex;
   flex-wrap: wrap;
