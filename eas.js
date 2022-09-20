@@ -10,8 +10,10 @@ let mouseY;
 let mX = [];
 let mY = [];
 let filledM = -1;
-let checkedM = -1;
-let nElemsOnSide = 400;
+let divList = [];
+let divListN = 0;
+let checkedDivN = -1;
+let nElemsOnSide = 200;
 let side;
 let nExistingElems = 0;
 let choice = '#0000FF';
@@ -143,6 +145,7 @@ function setSkCoords(e){
           for(let i = filledM + 1; i <= last; i++){
             mX[i] = mX[i-1] + incrX;
             mY[i] = mY[i-1] + incrY;
+            computeIDs(mX[i], mY[i]);
           }
           filledM += stepsMax;
         } else if(msX < oldX && msY > oldY){
@@ -156,6 +159,7 @@ function setSkCoords(e){
           for(let i = filledM + 1; i <= last; i++){
             mX[i] = mX[i-1] + incrX;
             mY[i] = mY[i-1] + incrY;
+            computeIDs(mX[i], mY[i]);
           }
           filledM += stepsMax;
         } else if(msX > oldX && msY < oldY){
@@ -169,6 +173,7 @@ function setSkCoords(e){
           for(let i = filledM + 1; i <= last; i++){
             mX[i] = mX[i-1] + incrX;
             mY[i] = mY[i-1] + incrY;
+            computeIDs(mX[i], mY[i]);
           }
           filledM += stepsMax;
         } else if(msX < oldX && msY < oldY){
@@ -182,11 +187,13 @@ function setSkCoords(e){
           for(let i = filledM + 1; i <= last; i++){
             mX[i] = mX[i-1] + incrX;
             mY[i] = mY[i-1] + incrY;
+            computeIDs(mX[i], mY[i]);
           }
           filledM += stepsMax;
         } else if(oldX === undefined){
           mX.push(msX);
           mY.push(msY);
+          computeIDs(msX, msY);
           filledM += 1;
         }
         written = true;
@@ -203,7 +210,7 @@ function doElementsCollide(msX, msY, elem){
 
     return ((msX > elemDim.left) &&
             (msX < elemDim.right)) &&
-          ((msY > elemDim.top) &&
+           ((msY > elemDim.top) &&
             (msY < elemDim.bottom));
   }
 
@@ -219,22 +226,182 @@ function isHere(){
   }
 }
 
+
+  /**************************************************************
+     MATH FOR computeIDs():
+     
+     For sketchContainer and div-0:
+     The top is the same top and the left is the same left.
+     For sketchContainer and the bottom right div-n:
+     The bottom is the same bottom and the right is the same right.
+
+     First row is row 0; first column is column 0;
+    
+     For center div:
+     vertical = (y - skTop)
+     rowNum = Math.floor(vertical / side)
+     firstDivN = rowNum * (400 / side)
+     
+     horizontal = (x - skLeft)
+     columnNum = Math.floor(horizontal / side)
+     
+     For general case: divN = firstDivN + columnNum
+
+     centerDivN = Math.floor((y - skTop) / side) * (400 / side) +
+                  Math.floor((x - skLeft) / side)
+  
+     BrushSize is always odd.
+     To the left: 
+     horizontal = (x - (brushSize - 1) / 2 - skLeft)
+     firstBrushedColumn = Math.floor(horizontal / side)
+     To the right:
+     horizontal = (x + (brushSize - 1) / 2 - skLeft)
+     lastBrushedColumn = Math.floor(horizontal / side)
+     To the top:
+     vertical = (y - (brushSize - 1) / 2 - skTop)
+     firstBrushedRow = Math.floor(vertical / side)
+     To the bottom:
+     vertical = (y + (brushSie - 1) / 2 - skTop)
+     LastBrushedRow = Math.floor(vertical / side)
+     
+     firstBrushedDivN = firstBrushedRow * (400 / side) +
+                        firstBrushedColumn
+  **************************************************************/
+  
+
 function computeIDs(x, y){
   let brushSize = 3;
-  let top = 100;
-  let left = 300;
-  // For sketchContainer and Div-0:
-  // The top is the same top and the left is the same left.
+  let firstBrushedRowN = Math.floor((y - (brushSize - 1) / 2 - skTop) / 
+                         side);
+  let lastBrushedRowN = Math.floor((y + (brushSize - 1) / 2 - skTop) / 
+                        side);
+  let firstBrushedColumnN = Math.floor((x - (brushSize - 1) / 2 - 
+                            skLeft) / side);
+  let lastBrushedColumnN = Math.floor((x + (brushSize - 1) / 2 - 
+                           skLeft) / side);
+  const rowMultiplier = 400 / side;
+  
+  // "No collision" case (actually allows edging right and bottom):
+  if(x - (brushSize - 1) / 2 > skLeft &&
+     skLeft + 400 > x + (brushSize - 1) / 2 &&
+     y - (brushSize - 1) / 2 > skTop &&
+     skTop + 400 > y + (brushSize - 1) / 2){
+
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with bottom case:
+  } else if(x - (brushSize - 1) / 2 > skLeft &&
+            skLeft + 400 > x + (brushSize - 1) / 2 &&
+            skTop + 400 <= y + (brushSize - 1) / 2){
+    
+    lastBrushedRowN = 400 / side - 1;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with left case:
+  } else if(x - (brushSize - 1) / 2 <= skLeft &&
+            y - (brushSize - 1) / 2 > skTop &&
+            skTop + 400 > y + (brushSize - 1) / 2){
+    
+    firstBrushedColumnN = 0;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with right case:
+  } else if(skLeft + 400 <= x + (brushSize - 1) / 2 &&
+            y - (brushSize - 1) / 2 > skTop &&
+            skTop + 400 > y + (brushSize - 1) / 2){
+
+    lastBrushedColumnN = 400 / side - 1;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with top case:
+  } else if(x - (brushSize - 1) / 2 > skLeft &&
+            skLeft + 400 > x + (brushSize - 1) / 2 &&
+            y - (brushSize - 1) / 2 <= skTop){
+    
+    firstBrushedRowN = 0;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with bottom left corner case:
+  } else if(x - (brushSize - 1) / 2 <= skLeft &&
+            skTop + 400 <= y + (brushSize - 1) / 2){
+
+    lastBrushedRowN = 400 / side - 1;
+    firstBrushedColumnN = 0;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with bottom right corner case:
+  } else if(skLeft + 400 <= x + (brushSize - 1) / 2 &&
+            skTop + 400 <= y + (brushSize - 1) / 2){
+    
+    lastBrushedRowN = 400 / side - 1;
+    lastBrushedColumnN = 400 / side - 1;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with top left corner case:
+  } else if(x - (brushSize - 1) / 2 <= skLeft &&
+            y - (brushSize - 1) / 2 <= skTop){
+
+    firstBrushedRowN = 0;
+    firstBrushedColumnN = 0;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  // Collide with top right corner case:
+  } else if(skLeft + 400 <= x + (brushSize - 1) / 2 &&
+            y - (brushSize - 1) / 2 <= skTop){
+
+    firstBrushedRowN = 0;
+    lastBrushedColumnN = 400 / side - 1;
+    for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
+      for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
+        divList[divListN] = `div-${i * rowMultiplier + j}`;
+        divListN++;
+      }
+    }
+  }
 }
 
 function backfill(){
 
   if(written){
     written = false;
-    let vLast = mX.length -1;
-
-
-    checkedM = vLast;
+    let vLast = divList.length - 1;
+    for(let i = checkedDivN + 1; i <= vLast; i++){
+      const div = document.getElementById(divList[i]);
+      div.style.backgroundColor = choice;
+    }
+    checkedDivN = vLast;
   }
 
   if(active || inQueue || writing || written){
@@ -246,13 +413,22 @@ function start(){
   sketchContainer.addEventListener('mousedown', () => {
     active = true;
     isHere();
-    //backfill();
+    backfill();
   })
 }
 
 function stop(){
   forgiveDiv.addEventListener('mouseup', () => {
     active = false;
+
+    setTimeout(() => {
+      mX = [];
+      mY = [];
+      filledM = -1;
+      divList = [];
+      divListN = 0;
+      checkedDivN = -1;
+    }, 200);
   })
 }
 function reset(){
