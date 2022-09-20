@@ -94,17 +94,6 @@ function sizer(nElemsOnYAxis){
   }
 }
 
-function styler(){
-  const toDo = document.querySelectorAll('.all');
-  toDo.forEach(elem => {
-    elem.addEventListener('mouseenter', () => {
-      if(active){
-        elem.style.backgroundColor = choice;
-      }
-    })
-  });
-}
-
 function setCoords(e){
   e.stopPropagation();
   mouseX = e.clientX;
@@ -134,6 +123,7 @@ function setSkCoords(e){
           queueBackfill();
         }, 50);
         inQueue = true;
+        console.log('queued');
       } else{ 
         writing = true;
         inQueue = false;
@@ -233,7 +223,7 @@ function doElementsCollide(msX, msY, elem){
 function isHere(){
   const here = doElementsCollide(mouseX, mouseY, forgiveDiv);
 
-  console.log('checking collide');
+  // console.log('checking collide');
   // IF here and mouseup hasn't fired yet.
   if(here && active){
     window.requestAnimationFrame(isHere);
@@ -252,6 +242,7 @@ function isHere(){
      The bottom is the same bottom and the right is the same right.
 
      First row is row 0; first column is column 0;
+     side is length of div "pixel" side.
     
      For center div:
      vertical = (y - skTop)
@@ -266,7 +257,7 @@ function isHere(){
      centerDivN = Math.floor((y - skTop) / side) * (skWidth / side) +
                   Math.floor((x - skLeft) / side)
   
-     BrushSize is always odd.
+     brushSize is always odd.
      To the left: 
      horizontal = (x - (brushSize - 1) / 2 - skLeft)
      firstBrushedColumn = Math.floor(horizontal / side)
@@ -286,7 +277,7 @@ function isHere(){
   
 
 function computeIDs(x, y){
-  let brushSize = 3;
+  let brushSize = 5;
   let firstBrushedRowN = Math.floor((y - (brushSize - 1) / 2 - skTop) / 
                          side);
   let lastBrushedRowN = Math.floor((y + (brushSize - 1) / 2 - skTop) / 
@@ -412,7 +403,7 @@ function backfill(){
 
   if(written){
     written = false;
-    let vLast = divList.length - 1;
+    const vLast = divList.length - 1;
     for(let i = checkedDivN + 1; i <= vLast; i++){
       const div = document.getElementById(divList[i]);
       div.style.backgroundColor = choice;
@@ -431,31 +422,28 @@ function start(){
     startAgain = true;
     isHere();
     backfill();
-  })
+  });
 }
 
 function stop(){
   forgiveDiv.addEventListener('mouseup', () => {
     active = false;
-
-    /*setTimeout(() => {
-      mX = [];
-      mY = [];
-      filledM = -1;
-      divList = [];
-      divListN = 0;
-      checkedDivN = -1;
-    }, 200);*/
-  })
-}
-function reset(){
-  const toDo = document.querySelectorAll('.all');
-  toDo.forEach(elem => {
-    elem.style.backgroundColor = '#FFFFFF';
   });
-  // instead: iterate through divList[] then clear divList and related.
-  // backgroundColor = ''; (revert to stylesheet)
 }
+
+function reset(){
+  // Revert to stylesheet backgroundColor.
+  const vLast = divList.length - 1;
+  for(let i = 0; i <= vLast; i++){
+    const div = document.getElementById(divList[i]);
+    div.style.backgroundColor = '';
+  }
+
+  divList = [];
+  divListN = 0;
+  checkedDivN = -1
+}
+
 window.addEventListener('load', doStuff);
 
 function doStuff(){
