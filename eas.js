@@ -1,28 +1,35 @@
-/* Setting div-n specific actions for all drawing divs is 
+/* Setting div-n specific actions for all div "pixels" is 
    computationally expensive. An alternative is calculating div-n and 
    working specifically with the desired div(s).
    As mouse events are unreliable, interpolating msX and msY is useful.
-      */
-let nDivs = 0;
+*/
+let choice = '#0000FF';
+let dotEnabled = false;
+let brushSize = 5;
+
 let active = false;
 let startAgain = false;
-let mouseX;
-let mouseY;
+let queueN = -1;
+let n = 0;
+let inQueue = false;
+let writing = false;
+let written = false;
 let mX = [];
 let mY = [];
 let filledM = -1;
 let divList = [];
 let divListN = 0;
 let checkedDivN = -1;
+
+let mouseX;
+let mouseY;
+
 let nElemsOnYAxis = 200;
-let side;
+let divWidth;
+let divHeight;
+let minSide;
 let nExistingElems = 0;
-let choice = '#0000FF';
-let queueN = -1;
-let n = 0;
-let inQueue = false;
-let writing = false;
-let written = false;
+
 const sketchContainer = document.getElementById('sketchContainer');
 const forgiveDiv = document.getElementById('forgiveDiv');
 
@@ -47,13 +54,13 @@ function debounce(func, milliseconds){
 
 document.oncontextmenu = () => false;
 
-function adder(divN, side){
+function adder(divN, w, h){
   const newDiv = document.createElement('div');
   newDiv.setAttribute('id', `div-${divN}`);
   newDiv.setAttribute('class', 'all');
   newDiv.setAttribute('draggable', 'false');
-  newDiv.style.width = `${side}px`;
-  newDiv.style.height = `${side}px`;
+  newDiv.style.width = `${w}px`;
+  newDiv.style.height = `${h}px`;
   sketchContainer.appendChild(newDiv);
 }
 
@@ -62,33 +69,59 @@ function remover(divN){
   sketchContainer.removeChild(deleted);
 }
 
-function resizer(newDivSide){
+function resizer(w, h){
   const toDo = document.querySelectorAll('.all');
   toDo.forEach(elem => {
-    elem.style.width = `${newDivSide}px`;
-    elem.style.width = `${newDivSide}px`;
+    elem.style.width = `${w}px`;
+    elem.style.width = `${h}px`;
   });
 }
 
+/* sizer() assumes square divs. To adjust for arbitrary nElemsOnYAxis, 
+   the horizontal and vertical sides need separate calculation and 
+   variables for use throughout sizer() and elsewhere in the script. As 
+   nElemsOnYAxis will not be a user option, it can be selected for side 
+   lengths that are mod=zero for both skWidth and skHeight. 
+   Examples for 600 by 400:
+   2, 4, 5, 10, 20, 40, 50
+*/
 function sizer(nElemsOnYAxis){
-  const totalElems = nElemsOnYAxis * (skWidth / skHeight) * 
-                     nElemsOnYAxis;
-  const newDivSide = skHeight / nElemsOnYAxis;
-  side = newDivSide;
+  const newDivHeight = skHeight / nElemsOnYAxis;
+  let nElemsOnXAxis;
+
+  // IF Math.floor allows a newDivWidth closest to newDivHeight:
+  if(Math.abs(skWidth / (Math.floor((skWidth / skHeight) * 
+     nElemsOnYAxis)) - newDivHeight) < 
+     Math.abs(skWidth / Math.ceil((skWidth / skHeight) * 
+     nElemsOnYAxis))){
+    nElemsOnXAxis = (Math.floor((skWidth / skHeight) * 
+                     nElemsOnYAxis))
+  } else{
+    nElemsOnXAxis = (Math.ceil((skWidth / skHeight) * 
+                     nElemsOnYAxis))
+  }
+  
+  const newDivWidth = skWidth / nElemsOnXAxis;
+  const totalElems = nElemsOnYAxis * nElemsOnXAxis;
+
+  minSide = Math.min(newDivWidth, newDivHeight);
+  divWidth = newDivWidth;
+  divHeight = newDivHeight;
+
   if(nExistingElems > totalElems){
     const last = totalElems;
     for(let i = nExistingElems - 1; i >= last; i--){
       remover(i);
     }
     // Resize elements bigger.
-    resizer(newDivSide);
+    resizer(newDivWidth, newDivHeight);
     nExistingElems = totalElems;
 
   } else if(nExistingElems < totalElems){
     // Resize elements smaller.
-    resizer(newDivSide);
+    resizer(newDivWidth, newDivHeight);
     for(let i = nExistingElems; i < totalElems; i++){
-      adder(i, newDivSide);
+      adder(i, newDivWidth, newDivHeight);
     }
     nExistingElems = totalElems;
   }
@@ -141,8 +174,8 @@ function setSkCoords(e){
 
         // undefined --> NaN which returns false for all comparisons.
         if(msX > oldX && msY > oldY){
-          let nXSteps = (msX - oldX) / side;
-          let nYSteps = (msY - oldY) / side;
+          let nXSteps = (msX - oldX) / minSide;
+          let nYSteps = (msY - oldY) / minSide;
           let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
           let incrX = (msX - oldX) / stepsMax;
           let incrY =  (msY - oldY) / stepsMax;
@@ -155,8 +188,8 @@ function setSkCoords(e){
           }
           filledM += stepsMax;
         } else if(msX < oldX && msY > oldY){
-          let nXSteps = (oldX - msX) / side;
-          let nYSteps = (msY - oldY) / side;
+          let nXSteps = (oldX - msX) / minSide;
+          let nYSteps = (msY - oldY) / minSide;
           let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
           let incrX = -(oldX - msX) / stepsMax;
           let incrY =  (msY - oldY) / stepsMax;
@@ -169,8 +202,8 @@ function setSkCoords(e){
           }
           filledM += stepsMax;
         } else if(msX > oldX && msY < oldY){
-          let nXSteps = (msX - oldX) / side;
-          let nYSteps = (oldY - msY) / side;
+          let nXSteps = (msX - oldX) / minSide;
+          let nYSteps = (oldY - msY) / minSide;
           let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
           let incrX = (msX - oldX) / stepsMax;
           let incrY = -(oldY - msY) / stepsMax;
@@ -183,8 +216,8 @@ function setSkCoords(e){
           }
           filledM += stepsMax;
         } else if(msX < oldX && msY < oldY){
-          let nXSteps = (oldX - msX) / side;
-          let nYSteps = (oldY - msY) / side;
+          let nXSteps = (oldX - msX) / minSide;
+          let nYSteps = (oldY - msY) / minSide;
           let stepsMax = Math.ceil(Math.max(nXSteps, nYSteps));
           let incrX = -(oldX - msX) / stepsMax;
           let incrY = -(oldY - msY) / stepsMax;
@@ -246,47 +279,46 @@ function isHere(){
     
      For center div:
      vertical = (y - skTop)
-     rowNum = Math.floor(vertical / side)
-     firstDivN = rowNum * (skWidth / side)
+     rowNum = Math.floor(vertical / divHeight)
+     firstDivN = rowNum * (skWidth / divWidth)
      
      horizontal = (x - skLeft)
-     columnNum = Math.floor(horizontal / side)
+     columnNum = Math.floor(horizontal / divWidth)
      
      For general case: divN = firstDivN + columnNum
 
-     centerDivN = Math.floor((y - skTop) / side) * (skWidth / side) +
-                  Math.floor((x - skLeft) / side)
+     centerDivN = Math.floor((y - skTop) / divHeight) * (skWidth / 
+                  divWidth) + Math.floor((x - skLeft) / divWidth)
   
      brushSize is always odd.
      To the left: 
      horizontal = (x - (brushSize - 1) / 2 - skLeft)
-     firstBrushedColumn = Math.floor(horizontal / side)
+     firstBrushedColumn = Math.floor(horizontal / divWidth)
      To the right:
      horizontal = (x + (brushSize - 1) / 2 - skLeft)
-     lastBrushedColumn = Math.floor(horizontal / side)
+     lastBrushedColumn = Math.floor(horizontal / divWidth)
      To the top:
      vertical = (y - (brushSize - 1) / 2 - skTop)
-     firstBrushedRow = Math.floor(vertical / side)
+     firstBrushedRow = Math.floor(vertical / divHeight)
      To the bottom:
      vertical = (y + (brushSize - 1) / 2 - skTop)
-     LastBrushedRow = Math.floor(vertical / side)
+     LastBrushedRow = Math.floor(vertical / divHeight)
      
-     firstBrushedDivN = firstBrushedRow * (skWidth / side) +
+     firstBrushedDivN = firstBrushedRow * (skWidth / divWidth) +
                         firstBrushedColumn
   **************************************************************/
   
 
 function computeIDs(x, y){
-  let brushSize = 5;
   let firstBrushedRowN = Math.floor((y - (brushSize - 1) / 2 - skTop) / 
-                         side);
+                         divHeight);
   let lastBrushedRowN = Math.floor((y + (brushSize - 1) / 2 - skTop) / 
-                        side);
+                        divHeight);
   let firstBrushedColumnN = Math.floor((x - (brushSize - 1) / 2 - 
-                            skLeft) / side);
+                            skLeft) / divWidth);
   let lastBrushedColumnN = Math.floor((x + (brushSize - 1) / 2 - 
-                           skLeft) / side);
-  const rowMultiplier = skWidth / side;
+                           skLeft) / divWidth);
+  const rowMultiplier = skWidth / divWidth;
   
   // "No collision" case (actually allows edging right and bottom):
   if(x - (brushSize - 1) / 2 > skLeft &&
@@ -305,7 +337,7 @@ function computeIDs(x, y){
             skLeft + skWidth > x + (brushSize - 1) / 2 &&
             skTop + skHeight <= y + (brushSize - 1) / 2){
     
-    lastBrushedRowN = skHeight / side - 1;
+    lastBrushedRowN = skHeight / divHeight - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -329,7 +361,7 @@ function computeIDs(x, y){
             y - (brushSize - 1) / 2 > skTop &&
             skTop + skHeight > y + (brushSize - 1) / 2){
 
-    lastBrushedColumnN = skWidth / side - 1;
+    lastBrushedColumnN = skWidth / divWidth - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -352,7 +384,7 @@ function computeIDs(x, y){
   } else if(x - (brushSize - 1) / 2 <= skLeft &&
             skTop + skHeight <= y + (brushSize - 1) / 2){
 
-    lastBrushedRowN = skHeight / side - 1;
+    lastBrushedRowN = skHeight / divHeight - 1;
     firstBrushedColumnN = 0;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
@@ -364,8 +396,8 @@ function computeIDs(x, y){
   } else if(skLeft + skWidth <= x + (brushSize - 1) / 2 &&
             skTop + skHeight <= y + (brushSize - 1) / 2){
     
-    lastBrushedRowN = skHeight / side - 1;
-    lastBrushedColumnN = skWidth / side - 1;
+    lastBrushedRowN = skHeight / divHeight - 1;
+    lastBrushedColumnN = skWidth / divWidth - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -389,7 +421,7 @@ function computeIDs(x, y){
             y - (brushSize - 1) / 2 <= skTop){
 
     firstBrushedRowN = 0;
-    lastBrushedColumnN = skWidth / side - 1;
+    lastBrushedColumnN = skWidth / divWidth - 1;
     for(let i = firstBrushedRowN; i <= lastBrushedRowN; i++){
       for(let j = firstBrushedColumnN; j <= lastBrushedColumnN; j++){
         divList[divListN] = `div-${i * rowMultiplier + j}`;
@@ -417,11 +449,15 @@ function backfill(){
 }
 
 function start(){
-  sketchContainer.addEventListener('mousedown', () => {
+  sketchContainer.addEventListener('mousedown', (e) => {
     active = true;
     startAgain = true;
     isHere();
     backfill();
+    if(dotEnabled){
+      computeIDs(e.clientX, e.clientY);
+      written = true;
+    }
   });
 }
 

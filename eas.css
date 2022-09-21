@@ -11,8 +11,8 @@ body {
 }
 #forgiveDiv {
   flex: none;
-  width: 650px;
-  height: 450px;
+  width: 630px;
+  height: 430px;
   display: flex;
   align-items: center;
   justify-content: center;
